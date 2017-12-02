@@ -2,7 +2,7 @@
   Drupal.behaviors.booking = {
     attach : function(context, settings) {
     	var eid = Drupal.settings.booking.eid;
-    	$('span.book', context).live('click', function(eventObject) {
+    	$('span#book', context).live('click', function(eventObject) {
 
 			var obj = this;
 	    	var dt_ = Date();
@@ -12,11 +12,9 @@
 	    	jQuery.get(booked, function(data){
 	    		var json = jQuery.parseJSON(data);
 	    		$('span.count').text(json.count);
-	    		$('input#edit-id').removeAttr('checked');
+	    		$('span#book').attr('class', json.class);
 	    		if(!checked) {
-	    			// $('input#edit-id').attr('checked', 'checked');
-	    			// $('label[for=edit-id]').text(json.text);
-	    			$('span.book').text(json.text)
+	    			$('span#book').text(json.text);
 	    		}
 	        });
 

@@ -1,0 +1,12 @@
+span#book {
+	cursor:pointer;
+	color: #0071B3;
+}
+
+span#book:hover {
+	text-decoration: underline;
+}
+
+span#book:before {
+	padding-right: 10px;
+}

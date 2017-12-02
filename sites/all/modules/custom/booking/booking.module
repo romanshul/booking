@@ -48,10 +48,12 @@ function booking_add_user() {
 
 	$count = booking_check_places($eid);
 	$text = $booked ? t('book a place') : t('cancel a booking');
+	$class = $booked ? 'ion-android-checkbox-outline' : 'ion-android-checkbox-outline-blank';
 
 	echo json_encode(array(
 			'count' => $count,
-			'text' => $text
+			'text' => $text,
+			'class' => $class
 		));
 }
 
@@ -198,10 +200,11 @@ function booking_block_view($delta = '') {
 				$author = 'Author: '. l($usr->name, 'node/'.$user_nid);
 
 				$text = $check ? t('cancel a booking') : t('book a place');
+				$class = $check ? 'ion-android-checkbox-outline' : 'ion-android-checkbox-outline-blank';
 
 				$content = 'Places: <span class="count">'.$count .'</span><br>'.
 						$author.
-						'<br><span class="book" style="cursor:pointer;">'.$text.'</span>'
+						'<br><span id=book class="'.$class.'">'.$text.'</span>'
 						//$form
 						;
 
@@ -239,6 +242,9 @@ function booking_preprocess_node(&$variables) {
 	if ($variables['node']->type == 'event') {
 		drupal_add_js(array('booking' => array('eid' => $variables['node']->nid)), array('type' => 'setting'));
 		drupal_add_js(drupal_get_path('module', 'booking') . '/booking.js', array('group' => JS_LIBRARY, 'weight' => 10));
+
+		drupal_add_css(drupal_get_path('module', 'booking') . '/ionicons.min.css');
+		drupal_add_css(drupal_get_path('module', 'booking') . '/booking.css');
 	}
 
 }
