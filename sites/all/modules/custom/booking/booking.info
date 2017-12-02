@@ -1,0 +1,8 @@
+; $Id$
+name = booking
+description = booking events.
+package = Booking
+core = 7.x
+files[] = booking.module
+version = "7.x-1.0"
+project = "booking"

@@ -1,0 +1,43 @@
+<?php
+function booking_schema() {
+         $schema['booking'] = array(
+          'description' => 'Users who booked event',
+ 
+          'fields' => array(
+            'id' => array(
+              'type' => 'serial',
+              'not null' => TRUE,
+              'description' => 'Primary Key: ID.',
+            ),
+            'time' => array(
+              'type' => 'int',
+              'unsigned' => TRUE,
+              'not null' => TRUE,
+              'default' => 0,
+              'description' => 'The time setting when change or save',
+            ),
+            'event_id' => array(
+              'type' => 'int',
+              'not null' => TRUE,
+              'default' => 0,
+              'description' => 'Event ID',
+            ),
+            'user_id' => array(
+              'type' => 'int',
+              'not null' => TRUE,
+              'default' => 0,
+              'description' => 'User ID',
+            ),
+            'booked' => array(
+              'type' => 'int',
+              'not null' => TRUE,
+              'default' => 0,
+              'description' => 'User ID',
+            ),
+          ),
+
+          'primary key' => array('id'),
+        );
+
+      return $schema;
+}

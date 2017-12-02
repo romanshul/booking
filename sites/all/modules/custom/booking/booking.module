@@ -1,0 +1,244 @@
+<?php
+
+/**
+ * Implementation of hook_permission().
+ */
+function booking_permission() {
+  return array(
+    'booking system' => array(
+      'title' => t('booking system') 
+    ),
+  );
+}
+
+function booking_menu() {
+  $items['booking-save'] = array(
+    'access arguments' => array('booking system'),
+    'page callback'   => 'booking_add_user',
+    'title'           => 'User booked place',
+    'type' => MENU_CALLBACK
+  );
+  $items['booking-del/%'] = array(
+    'access arguments' => array('booking system'),
+    'page callback'   => 'booking_remove_user',
+    'title'           => 'User booked place',
+    'type' => MENU_CALLBACK
+  );
+
+  return $items;
+}
+
+/**
+ * Add or update new relationship event-user.
+ */
+function booking_add_user() {
+	global $user;
+
+	$eid = arg(1);
+	$uid = $user->uid;
+	$booked = booking_check_user($eid,$uid);
+
+	db_merge('booking')
+	  ->key(array('event_id' => $eid, 'user_id' => $uid))
+	  ->fields(array(
+	    'booked' => $booked ? 0 : 1,
+	    'time' => time(),
+	  ))
+	  ->execute();
+
+	$count = booking_check_places($eid);
+	$text = $booked ? t('book a place') : t('cancel a booking');
+
+	echo json_encode(array(
+			'count' => $count,
+			'text' => $text
+		));
+}
+
+function booking_remove_user() {
+	$uid = arg(1);
+
+	db_delete('booking')
+	  ->condition('user_id', $uid)
+	  ->execute();
+
+	echo 'ok';
+}
+
+/**
+ * count users who booked a place.
+ */
+function booking_check_places($eid) {
+	$count = db_select('booking', 'b')
+			  ->condition('b.event_id', $eid, '=')
+			  ->condition('b.booked', 1)
+			  ->countQuery()
+			  ->execute()
+			  ->fetchField();
+
+	$ndd = node_load($eid);
+	$number_places = booking_get_field_value($ndd, 'field_places');
+
+	$number = $number_places - $count;
+
+	return $number;
+}
+
+/**
+ * Check if field exists.
+ */
+function booking_get_field_value($ndd, $field) {
+	if(isset($ndd->{$field}['und']))
+		return $ndd->field_places['und'][0]['value'];
+	return false;
+}
+
+/**
+ * Check if place is booked
+ */
+function booking_check_user($eid, $uid) {
+	$check = db_select('booking', 'b')
+			  ->condition('b.event_id', $eid, '=')
+			  ->condition('b.user_id', $uid, '=')
+			  ->condition('b.booked', 1, '=')
+			  ->countQuery()
+			  ->execute()
+			  ->fetchField();
+
+	return $check;
+}
+
+/**
+ * Implementation of hook_user_insert().
+ * create content author type
+ */
+function booking_user_insert(&$edit, $account, $category) {
+	// create content author with user->uid
+	$new_node = new StdClass();
+	$new_node->type = 'author';
+	$new_node->status = 1;
+	$new_node->promote = 0;
+	$new_node->comment = 0;
+	$new_node->sticky = 0;
+	$new_node->uid = $account->uid;
+	$new_node->title = $account->name;
+	$new_node->field_name['und'][0]['value'] = $account->name;
+	$new_node->field_surname['und'][0]['value'] = '';
+	node_save($new_node);
+}
+
+/**
+ * Create checkbox for booking a place on event.
+ */
+function booking_book_form($form, &$form_state, $vars) {
+
+	$check = $vars['check'];
+
+	$form['id'] = array(
+	    '#title' => $check ? t('cancel a booking') : t('book a place'),
+	    '#type' => 'checkbox',
+	    '#default_value' => $check ? 1 : null,
+	  );
+
+	return $form;
+}
+
+/**
+ * Get node id for author content type.
+ */
+function booking_get_user_nid($uid) {
+
+	$nid = db_select('node', 'n')
+				->condition('n.uid', $uid, '=')
+				->condition('n.type', 'author', '=')
+				->fields('n', array('nid'))
+				->execute()
+				->fetchField();
+
+	return $nid;
+}
+
+/**
+ * Implementation of hook_block_info().
+ */
+function booking_block_info() {    
+  $blocks['booking_info'] = array(
+    'info' => t('Book a place'),
+  );  
+  $blocks['booking_recent_events'] = array(
+    'info' => t('Recent events'),
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implementation of hook_block_view().
+ */
+function booking_block_view($delta = '') {
+	global $user;
+
+	switch ($delta) {
+		case 'booking_info':
+
+			$eid = arg(1);
+			$uid = $user->uid;
+			$check = booking_check_user($eid, $uid);
+				$eid = arg(1);
+				$block['subject'] = t("Places' info");
+
+				$count = booking_check_places($eid);
+				$form_ = drupal_get_form('booking_book_form', array('check' => $check));
+				$form = drupal_render($form_);
+
+				$node = node_load($eid);
+				$usr = user_load($node->uid);
+				$user_nid = booking_get_user_nid($usr->uid);
+
+				$author = 'Author: '. l($usr->name, 'node/'.$user_nid);
+
+				$text = $check ? t('cancel a booking') : t('book a place');
+
+				$content = 'Places: <span class="count">'.$count .'</span><br>'.
+						$author.
+						'<br><span class="book" style="cursor:pointer;">'.$text.'</span>'
+						//$form
+						;
+
+				$block['content'] = $content;
+
+		break;
+
+		case 'booking_recent_events':
+			$nodes = db_select('node', 'n')
+				  ->condition('n.type', 'event', '=')
+				  ->fields('n')
+				  ->range(0, 5)
+				  ->orderBy('n.created','DESC')
+				  ->execute()
+				  ->fetchAll();
+			$content = '';
+			if($nodes) {
+				foreach ($nodes as $node) {
+					$link = l($node->title, 'node/'.$node->nid);
+					$content .= '<li>'.$link.'</li>';
+				}
+			}
+			$block['subject'] = t("5 Recent events");
+			$block['content'] = $content;
+		break;
+	}
+
+	return $block;
+}
+
+/**
+ * Implementation of hook_preprocess_node().
+ */
+function booking_preprocess_node(&$variables) {
+	if ($variables['node']->type == 'event') {
+		drupal_add_js(array('booking' => array('eid' => $variables['node']->nid)), array('type' => 'setting'));
+		drupal_add_js(drupal_get_path('module', 'booking') . '/booking.js', array('group' => JS_LIBRARY, 'weight' => 10));
+	}
+
+}
